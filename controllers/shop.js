@@ -1,24 +1,25 @@
 import express from "express";
 import path from "path";
 import upload from "../utils/multer.js";
-import User from "../models/user.js";
+import Shop from "../models/shop.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import fs from "fs";
 import errorHandler from "../utils/errorHandler.js";
 import jwt from "jsonwebtoken";
 import sendMail from "../utils/sendMail.js";
 import catchAsyncError from "../middleware/catchAsyncErrors.js";
-import sendToken from "../utils/jwtToken.js";
-import { isAuthenticated } from "../middleware/auth.js";
+import { isAuthenticated, isSeller } from "../middleware/auth.js";
+import sendShopToken from "../utils/sendShopToken.js";
 
 const router = express.Router();
 
-router.post("/create-user", upload.single("file"), async (req, res, next) => {
+router.post("/create-shop", upload.single("file"), async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
-    const userEmail = await User.findOne({ email });
+    const { name, email, phoneNumber, address, zipCode, password } = req.body;
 
-    if (userEmail) {
+    const sellerEmail = await Shop.findOne({ email });
+
+    if (sellerEmail) {
       const filename = req.file.filename;
       const filePath = `uploads/${filename}`;
       fs.unlink(filePath, (err) => {
@@ -33,25 +34,28 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
     const filename = req.file.filename;
     const fileUrl = path.join(filename);
 
-    const user = {
+    const seller = {
       name: name,
       email: email,
+      phoneNumber: phoneNumber,
+      address: address,
+      zipCode: zipCode,
       password: password,
       avatar: fileUrl,
     };
-    const activationToken = createActivationToken(user);
+    const activationToken = createActivationToken(seller);
 
-    const activationUrl = `http://localhost:5173/activation/${activationToken}`;
+    const activationUrl = `http://localhost:5173/seller/activation/${activationToken}`;
 
     try {
       await sendMail({
-        email: user.email,
-        subject: "Account Activation",
-        message: `Hi ${user.name}, Please click on the link below to activate your account: ${activationUrl}`,
+        email: seller.email,
+        subject: "Activation Your Shop",
+        message: `Hi ${seller.name}, Please click on the link below to activate your shop: ${activationUrl}`,
       });
       res.status(200).json({
         success: true,
-        message: `Please check your email:- ${user.email} to activate your account`,
+        message: `Please check your email:- ${seller.email} to activate your account`,
       });
     } catch (error) {
       return next(errorHandler(error.message), 500);
@@ -72,31 +76,35 @@ router.post(
   catchAsyncError(async (req, res, next) => {
     try {
       const { activation_token } = req.body;
-      const newUser = jwt.verify(
+      const newSeller = jwt.verify(
         activation_token,
         process.env.ACTIVATION_SECRET
       );
 
-      if (!newUser) {
+      if (!newSeller) {
         return next(errorHandler("Invalid activation token", 400));
       }
 
-      const { name, email, password, avatar } = newUser;
+      const { name, email, phoneNumber, address, zipCode, password, avatar } =
+        newSeller;
 
-      let user = await User.findOne({ email });
+      let seller = await Shop.findOne({ email });
 
-      if (user) {
+      if (seller) {
         return next(ErrorHandler("User already exists", 400));
       }
 
-      user = await User.create({
+      seller = await Shop.create({
         name,
         email,
+        zipCode,
+        address,
+        phoneNumber,
         avatar,
         password,
       });
 
-      sendToken(user, 201, res);
+      sendShopToken(seller, 201, res);
     } catch (error) {
       return next(errorHandler(error.message, 500));
     }
@@ -104,14 +112,14 @@ router.post(
 );
 
 router.post(
-  "/login-user",
+  "/login-shop",
   catchAsyncError(async (req, res, next) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
         return next(ErrorHandler("Please provide the all fields!", 400));
       }
-      const user = await User.findOne({ email }).select("+password");
+      const user = await Shop.findOne({ email }).select("+password");
       if (!user) {
         return next(ErrorHandler("User doesn't exist", 400));
       }
@@ -124,7 +132,7 @@ router.post(
         );
       }
 
-      sendToken(user, 201, res);
+      sendShopToken(user, 201, res);
     } catch (error) {
       return next(errorHandler(error.message, 500));
     }
@@ -132,41 +140,19 @@ router.post(
 );
 
 router.get(
-  "/get-user",
-  isAuthenticated,
+  "/get-shop",
+  isSeller,
   catchAsyncError(async (req, res, next) => {
     try {
-      const user = await User.findById(req.user.id);
+      const seller = await Shop.findById(req.seller.id);
 
-      if (!user) {
-        return next(ErrorHandler("User doesn't exist", 400));
+      if (!seller) {
+        return next(ErrorHandler("Shop doesn't exist", 400));
       }
       res.status(200).json({
         success: true,
-        message: "Get User successfully",
-        user,
-      });
-    } catch (error) {
-      return next(ErrorHandler(error.message, 500));
-    }
-  })
-);
-
-//Logout User
-
-router.get(
-  "/logout",
-  isAuthenticated,
-  catchAsyncError(async (req, res) => {
-    try {
-      res.cookie("token", null, {
-        expires: new Date(Date.now()),
-        httpOnly: true,
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "Log out successfully",
+        message: "Get Shop successfully",
+        seller,
       });
     } catch (error) {
       return next(ErrorHandler(error.message, 500));
