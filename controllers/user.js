@@ -1,19 +1,23 @@
-import express from "express";
+// import express from "express";
 import path from "path";
-import upload from "../utils/multer.js";
+// import upload from "../utils/multer.js";
 import User from "../models/user.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import fs from "fs";
 import errorHandler from "../utils/errorHandler.js";
 import jwt from "jsonwebtoken";
 import sendMail from "../utils/sendMail.js";
-import catchAsyncError from "../middleware/catchAsyncErrors.js";
+// import catchAsyncError from "../middleware/catchAsyncErrors.js";
 import sendToken from "../utils/jwtToken.js";
-import { isAuthenticated } from "../middleware/auth.js";
+// import { isAuthenticated } from "../middleware/auth.js";
+import { createActivationToken } from "../utils/createActivationToken.js";
 
-const router = express.Router();
 
-router.post("/create-user", upload.single("file"), async (req, res, next) => {
+// const router = express.Router();
+
+// router.post("/create-user", upload.single("file"),
+
+const registerUsers = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     const userEmail = await User.findOne({ email });
@@ -57,19 +61,22 @@ router.post("/create-user", upload.single("file"), async (req, res, next) => {
       return next(errorHandler(error.message), 500);
     }
   } catch (error) {
-    return next(errorHandler(error.message), 400);
+    return next(errorHandler(error.message), 500);
   }
-});
-
-const createActivationToken = (user) => {
-  return jwt.sign(user, process.env.ACTIVATION_SECRET, {
-    expiresIn: "5m",
-  });
 };
 
-router.post(
-  "/activation",
-  catchAsyncError(async (req, res, next) => {
+// const createActivationToken = (user) => {
+//   return jwt.sign(user, process.env.ACTIVATION_SECRET, {
+//     expiresIn: "5m",
+//   });
+// };
+
+// router.post(
+//   "/activation",
+//   catchAsyncError(
+    
+    
+    const activationUsers = async (req, res, next) => {
     try {
       const { activation_token } = req.body;
       const newUser = jwt.verify(
@@ -100,12 +107,14 @@ router.post(
     } catch (error) {
       return next(errorHandler(error.message, 500));
     }
-  })
-);
+  }
 
-router.post(
-  "/login-user",
-  catchAsyncError(async (req, res, next) => {
+
+// router.post(
+//   "/login-user",
+//   catchAsyncError(
+    
+    const loginUsers = async (req, res, next) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -128,13 +137,15 @@ router.post(
     } catch (error) {
       return next(errorHandler(error.message, 500));
     }
-  })
-);
+  }
 
-router.get(
-  "/get-user",
-  isAuthenticated,
-  catchAsyncError(async (req, res, next) => {
+
+// router.get(
+//   "/get-user",
+//   isAuthenticated,
+//   catchAsyncError(
+    
+    const getUsers = async (req, res, next) => {
     try {
       const user = await User.findById(req.user.id);
 
@@ -149,15 +160,16 @@ router.get(
     } catch (error) {
       return next(ErrorHandler(error.message, 500));
     }
-  })
-);
+  }
+
 
 //Logout User
-
-router.get(
-  "/logout",
-  isAuthenticated,
-  catchAsyncError(async (req, res) => {
+// router.get(
+//   "/logout",
+//   isAuthenticated,
+//   catchAsyncError(
+    
+    const logoutUsers = async (req, res) => {
     try {
       res.cookie("token", null, {
         expires: new Date(Date.now()),
@@ -171,7 +183,7 @@ router.get(
     } catch (error) {
       return next(ErrorHandler(error.message, 500));
     }
-  })
-);
+  }
 
-export default router;
+
+export {registerUsers,activationUsers, loginUsers,logoutUsers,getUsers};
