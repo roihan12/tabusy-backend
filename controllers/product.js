@@ -1,6 +1,7 @@
 import Product from "../models/product.js";
 import Shop from "../models/shop.js";
 import errorHandler from "../utils/errorHandler.js";
+import fs from "fs";
 
 const createProduct = async (req, res, next) => {
   try {
@@ -49,12 +50,24 @@ const getProductsByShop = async (req, res, next) => {
 const deleteProductsByShop = async (req, res, next) => {
   try {
     const productId = req.params.id;
+    const productData = await Product.findById(productId);
+
+    productData.images.forEach((imageUrl) => {
+      const filename = imageUrl;
+      const filePath = `uploads/${filename}`;
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.log(err);
+          res.status(500).json({ message: "Error deleting file" });
+        }
+      });
+    });
+
     const product = await Product.findByIdAndDelete(productId);
 
     if (!product) {
       return next(errorHandler("Product not found", 404), 404);
     }
-
     res.status(200).json({
       status: true,
       message: "Product deleted successfully",
@@ -63,7 +76,5 @@ const deleteProductsByShop = async (req, res, next) => {
     return next(errorHandler(error.message, 500), 500);
   }
 };
-
-
 
 export { createProduct, getProductsByShop, deleteProductsByShop };
